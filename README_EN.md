@@ -1,41 +1,182 @@
-﻿# LocCV - AI Resume Screening System (Docker + FastAPI + Ollama)
+﻿# LocCV - AI Resume Screening System
 
-LocCV is an AI-powered CV screening system that supports:
+LocCV is an AI-based screening system that ranks candidates by measuring CV-to-JD relevance.
 
-- Uploading one or multiple CV files (`.pdf`, `.docx`)
-- Scoring candidate-job fit against a JD
-- Ranking candidates
-- Storing screening history in SQLite
-- Extracting clickable project hyperlinks from PDF annotations
+## Project description
 
-The current setup is optimized for small VPS instances (2 CPU / 4 GB RAM) using batch `lite` mode.
+### What does this project do?
+
+LocCV provides:
+
+- Single and batch CV upload (`.pdf`, `.docx`)
+- Candidate-job fit scoring
+- Candidate ranking
+- Skill/experience/project-link analysis
+- SQLite result history for tracking and audit
+
+### Why these technologies?
+
+- **FastAPI**: lightweight and fast for API-first workflows.
+- **Ollama + mxbai-embed-large**: local embedding inference, no cloud dependency.
+- **SQLite**: simple and practical for MVP/local/small VPS.
+- **Docker Compose**: reproducible setup and deployment.
+
+### Challenges encountered
+
+- Complex PDF layouts can degrade extraction quality.
+- Plain text URL parsing causes false positives (fixed by prioritizing PDF annotations).
+- Running batch screening on 2 CPU / 4 GB RAM requires resource-aware strategy.
+
+### Planned improvements
+
+- OCR for scanned PDFs.
+- Reporting dashboard and CSV/Excel export.
+- Background queue (Celery/RQ) for larger batch stability.
 
 ---
 
-## 1) Architecture
+## Table of contents
 
-- `FastAPI backend`: parsing, analysis, scoring, persistence.
-- `Static frontend`: quick testing UI at `http://localhost:8000`.
-- `Ollama`: embeddings via `mxbai-embed-large`.
-- `SQLite`: local storage at `data/screening.db`.
-
-### Processing flow
-
-1. Upload CV(s) + JD text.
-2. Parse CV content:
-   - PDF via `PyMuPDF`
-   - DOCX via `python-docx`
-3. Extract candidate signals:
-   - name, email, skills, years of experience
-   - project hyperlinks (PDF annotation first)
-   - project snippets
-4. Parse JD (must-have, nice-to-have, min years, language hint).
-5. Compute scores (semantic + rules + project evidence).
-6. Return response and persist result.
+1. [System requirements](#system-requirements)
+2. [Installation and run](#installation-and-run)
+3. [How to use](#how-to-use)
+4. [LocCV scoring logic](#loccv-scoring-logic)
+5. [Project structure](#project-structure)
+6. [Environment variables](#environment-variables)
+7. [Credits](#credits)
+8. [License](#license)
 
 ---
 
-## 2) Project structure
+## System requirements
+
+- Docker Desktop (Windows) or Docker Engine (Linux)
+- Internet access for initial image/model pull
+- Recommended RAM: at least 4 GB
+
+---
+
+## Installation and run
+
+### 1) Open project directory
+
+```powershell
+cd F:\hrm
+```
+
+### 2) Build and start services
+
+```powershell
+docker compose up -d --build
+```
+
+### 3) Pull embedding model
+
+```powershell
+docker exec -it ollama ollama pull mxbai-embed-large
+```
+
+### 4) Health check
+
+```powershell
+curl.exe http://localhost:8000/health
+```
+
+Expected: `{"status":"ok"}`
+
+### 5) Open UI
+
+- `http://localhost:8000`
+
+---
+
+## How to use
+
+### A. Via UI (recommended)
+
+1. Open `http://localhost:8000`
+2. Upload one or more CV files (`.pdf`, `.docx`)
+3. Paste JD text
+4. Set `Top K` (for batch)
+5. Click **Chấm điểm phù hợp**
+
+You will see:
+
+- Final fit score
+- Recommendation label (`strong_fit`, `medium_fit`, `weak_fit`)
+- Batch ranking
+- Project links extracted from CV
+
+### B. Via API
+
+#### Single CV
+
+```powershell
+curl.exe -X POST "http://localhost:8000/screen" ^
+  -F "file=@C:\path\cv.pdf" ^
+  -F "jd_text=Backend Developer. Must have: JavaScript, SQL."
+```
+
+#### Batch CV
+
+```powershell
+curl.exe -X POST "http://localhost:8000/screen/batch" ^
+  -F "files=@C:\path\cv1.pdf" ^
+  -F "files=@C:\path\cv2.docx" ^
+  -F "jd_text=Frontend Developer. Must have: React, JavaScript, SQL." ^
+  -F "analysis_mode=lite" ^
+  -F "embedding_budget=24" ^
+  -F "top_k=10"
+```
+
+### C. Useful endpoints
+
+- `GET /results`: stored screening records
+- `GET /jobs`: stored JD list
+- `GET /jobs/{job_id}/ranking`: ranking by job
+
+### D. Recommended settings for 2CPU/4GB VPS
+
+- Use `analysis_mode=lite`
+- Set `embedding_budget=16..32`
+- Keep each batch under ~100 CV files
+
+---
+
+## LocCV scoring logic
+
+### Score components
+
+- `semantic_score`: CV–JD embedding similarity
+- `must_have_score`: required-skill match ratio
+- `nice_score`: preferred-skill match ratio
+- `exp_score`: experience requirement satisfaction
+- `project_score`: project/link relevance (if evidence exists)
+
+### Base weights
+
+- semantic: `0.55`
+- must: `0.30`
+- nice: `0.10`
+- exp: `0.05`
+- project: `0.12`
+
+LocCV uses **dynamic weighting**:
+
+- Only active components are included in the denominator.
+- Generic formula:
+
+`final_score = weighted_sum / total_active_weight`
+
+### Recommendation labels
+
+- `>= 0.8`: `strong_fit`
+- `>= 0.6`: `medium_fit`
+- `< 0.6`: `weak_fit`
+
+---
+
+## Project structure
 
 ```text
 F:\hrm
@@ -56,164 +197,7 @@ F:\hrm
 
 ---
 
-## 3) Setup and run
-
-### Requirements
-
-- Docker Desktop (Windows) or Docker Engine (Linux)
-- Internet access to pull images/models
-
-### Run
-
-```powershell
-cd F:\hrm
-docker compose up -d --build
-docker exec -it ollama ollama pull mxbai-embed-large
-```
-
-Health check:
-
-```powershell
-curl.exe http://localhost:8000/health
-```
-
-Open UI:
-
-- `http://localhost:8000`
-
----
-
-## 4) Main APIs
-
-### `POST /screen`
-
-Screen one CV.
-
-Form fields:
-
-- `file`: one `.pdf` or `.docx`
-- `jd_text`: job description text
-
-### `POST /screen/batch`
-
-Screen multiple CVs and rank them.
-
-Form fields:
-
-- `files`: multiple `.pdf/.docx`
-- `jd_text`: job description text
-- `top_k`: number of candidates returned
-- `analysis_mode`: `lite` (default) or `full`
-- `embedding_budget`: embedding budget for `lite` mode (default 32)
-
-### `GET /results`
-
-List stored screening results.
-
-### `GET /jobs`
-
-List stored jobs/JDs.
-
-### `GET /jobs/{job_id}/ranking`
-
-Get ranking for a specific job.
-
----
-
-## 5) LocCV scoring logic
-
-### 5.1 Score components
-
-- `semantic_score`: embedding similarity between CV and JD
-- `must_have_score`: required skill match ratio
-- `nice_score`: preferred skill match ratio
-- `exp_score`: experience requirement satisfaction
-- `project_score`: project/link relevance score (if evidence exists)
-
-### 5.2 Base weights
-
-- `semantic`: `0.55`
-- `must`: `0.30`
-- `nice`: `0.10`
-- `exp`: `0.05`
-- `project`: `0.12`
-
-LocCV uses **dynamic weighting**:
-
-- Only active components (with real constraints/evidence) are included.
-- Formula:
-
-`final_score = weighted_sum / total_active_weight`
-
-Examples:
-
-- If JD has no `nice_to_have` and no `min_years`, those components are excluded.
-- If `project_score` exists, project weight is included.
-
-### 5.3 Recommendation label
-
-- `>= 0.8`: `strong_fit`
-- `>= 0.6`: `medium_fit`
-- `< 0.6`: `weak_fit`
-
----
-
-## 6) Batch optimization for 2CPU / 4GB RAM
-
-### `analysis_mode=lite` (recommended)
-
-Two-stage pipeline:
-
-1. **Prefilter all CVs** (lightweight):
-   - lexical overlap + rule-fit
-2. **Budgeted embedding**:
-   - embed only top candidates based on prefilter score
-
-Benefits:
-
-- Lower memory/CPU spikes
-- Better throughput for <100 CV/request
-- Stable ranking quality
-
-### `analysis_mode=full`
-
-- Deep analysis for each CV
-- More expensive in compute/memory
-- Better for small batches or stronger machines
-
-### Practical settings for small VPS
-
-- `analysis_mode=lite`
-- `embedding_budget=16` to `32`
-- Keep each request under ~100 CV files
-
----
-
-## 7) Project hyperlink extraction behavior
-
-### PDF
-
-- Uses strict PDF annotation links (hover/click links in viewer)
-- Modes:
-  - `pdf_annotation_strict` (single/full)
-  - `pdf_annotation_strict_lite` (batch lite)
-
-### DOCX
-
-- Falls back to text URL extraction (`detection_mode=text_url`)
-
-### Link fields in response
-
-- `url`, `source`, `page`, `rect`
-- `reachable`, `status_code`, `title`, `description`, `relevance_score` (deep mode)
-
-Note:
-
-- In `lite` mode, deep URL checks may be skipped (`reachable` can be `null`).
-
----
-
-## 8) Important environment variables
+## Environment variables
 
 - `OLLAMA_URL` (default: `http://ollama:11434`)
 - `EMBED_MODEL` (default: `mxbai-embed-large`)
@@ -223,85 +207,28 @@ Note:
 
 ---
 
-## 9) Operational commands
+## Credits
 
-### Logs
+### Owner / Maintainer
 
-```powershell
-docker compose logs -f
-docker compose logs backend --tail=200
-```
+- **Vũ Hozang**
 
-### Reset database only
+### References
 
-```powershell
-docker compose down
-Remove-Item -Force .\data\screening.db
-docker compose up -d --build
-```
-
-### Remove all volumes (including pulled models)
-
-```powershell
-docker compose down -v
-```
-
-### Verify Ollama models
-
-```powershell
-docker exec -it ollama ollama list
-```
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Ollama Documentation](https://ollama.com/)
+- [PyMuPDF Documentation](https://pymupdf.readthedocs.io/)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
 
 ---
 
-## 10) Quick troubleshooting
+## License
 
-### `{"detail":"Internal Server Error"}`
+This project currently **does not include a final LICENSE file**.
 
-Usually related to embedding service/runtime.
+Recommendation:
 
-Check:
+- Use `MIT` or `Apache-2.0` for permissive open usage
+- Use `GPL-3.0` for stronger copyleft
 
-```powershell
-docker exec -it ollama ollama list
-docker compose logs backend --tail=200
-```
-
-Re-pull model if needed:
-
-```powershell
-docker exec -it ollama ollama pull mxbai-embed-large
-```
-
-### Frontend does not refresh after changes
-
-- Hard refresh browser: `Ctrl + F5`
-
-### PDF/DOCX upload issues
-
-- Only `.pdf` and `.docx` are supported
-- Image-only scanned PDFs (no OCR) reduce parsing quality
-
----
-
-## 11) Quick curl examples
-
-### Single CV
-
-```powershell
-curl.exe -X POST "http://localhost:8000/screen" ^
-  -F "file=@C:\path\to\cv.pdf" ^
-  -F "jd_text=Backend Developer. Must have: JavaScript, SQL. Nice to have: Docker."
-```
-
-### Batch CV
-
-```powershell
-curl.exe -X POST "http://localhost:8000/screen/batch" ^
-  -F "files=@C:\path\cv1.pdf" ^
-  -F "files=@C:\path\cv2.docx" ^
-  -F "jd_text=Backend Developer. Must have: JavaScript, SQL." ^
-  -F "analysis_mode=lite" ^
-  -F "embedding_budget=24" ^
-  -F "top_k=10"
-```
+License guide: <https://choosealicense.com/>
