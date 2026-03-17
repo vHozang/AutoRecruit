@@ -9,7 +9,6 @@
 AutoRecruit is an AI-based CV screening system that matches resumes against a Job Description (JD), scores candidate fit, and ranks applicants.
 
 ## Key features
-
 - Upload one or multiple CV files (`.pdf`, `.docx`)
 - CV-to-JD fit scoring
 - Candidate ranking by score
@@ -17,14 +16,11 @@ AutoRecruit is an AI-based CV screening system that matches resumes against a Jo
 - SQLite-based result history
 
 ## Quick setup
-
 Requirements:
-
 - Docker Desktop (or Docker Engine)
 - Internet access for initial model pull
 
 Run:
-
 ```powershell
 cd F:\AutoRecruit
 docker compose up -d --build
@@ -32,35 +28,28 @@ docker exec -it ollama ollama pull mxbai-embed-large
 ```
 
 Health check:
-
 ```powershell
 curl.exe http://localhost:8000/health
 ```
-
 Expected: `{"status":"ok"}`
 
 Open UI:
-
 - `http://localhost:8000`
 
 ## How to use
-
 1. Open `http://localhost:8000`
 2. Upload one or more CV files (`.pdf`, `.docx`)
 3. Paste JD text
 4. Click **Chấm điểm phù hợp**
 
 Returned output includes:
-
 - `final_score`
 - recommendation label (`strong_fit`, `medium_fit`, `weak_fit`)
 - ranking (batch mode)
 - project/link analysis (when available)
 
 ## Basic APIs
-
 ### Screen single CV
-
 ```powershell
 curl.exe -X POST "http://localhost:8000/screen" ^
   -F "file=@C:\path\cv.pdf" ^
@@ -68,7 +57,6 @@ curl.exe -X POST "http://localhost:8000/screen" ^
 ```
 
 ### Screen batch CVs
-
 ```powershell
 curl.exe -X POST "http://localhost:8000/screen/batch" ^
   -F "files=@C:\path\cv1.pdf" ^
@@ -80,11 +68,9 @@ curl.exe -X POST "http://localhost:8000/screen/batch" ^
 ```
 
 ## Important notes
-
 - Use `analysis_mode=lite` for small VPS (2 CPU / 4 GB RAM)
 - Keep each batch request under ~100 CV files
 - Image-only scanned PDFs (without OCR) may reduce extraction quality
 
 ## License
-
 This project is licensed under the **MIT License**. See [LICENSE](./LICENSE).
