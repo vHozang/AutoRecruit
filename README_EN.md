@@ -1,82 +1,37 @@
-﻿# LocCV - AI Resume Screening System
+﻿# AutoRecruit - AI Resume Screening System
 
-LocCV is an AI-based screening system that ranks candidates by measuring CV-to-JD relevance.
+![Project](https://img.shields.io/badge/Project-AutoRecruit-0A66C2)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-## Project description
+AutoRecruit is an AI-based CV screening system that matches resumes against a Job Description (JD), scores candidate fit, and ranks applicants.
 
-### What does this project do?
+## Key features
 
-LocCV provides:
+- Upload one or multiple CV files (`.pdf`, `.docx`)
+- CV-to-JD fit scoring
+- Candidate ranking by score
+- Skill/experience/project-link extraction
+- SQLite-based result history
 
-- Single and batch CV upload (`.pdf`, `.docx`)
-- Candidate-job fit scoring
-- Candidate ranking
-- Skill/experience/project-link analysis
-- SQLite result history for tracking and audit
+## Quick setup
 
-### Why these technologies?
+Requirements:
 
-- **FastAPI**: lightweight and fast for API-first workflows.
-- **Ollama + mxbai-embed-large**: local embedding inference, no cloud dependency.
-- **SQLite**: simple and practical for MVP/local/small VPS.
-- **Docker Compose**: reproducible setup and deployment.
+- Docker Desktop (or Docker Engine)
+- Internet access for initial model pull
 
-### Challenges encountered
-
-- Complex PDF layouts can degrade extraction quality.
-- Plain text URL parsing causes false positives (fixed by prioritizing PDF annotations).
-- Running batch screening on 2 CPU / 4 GB RAM requires resource-aware strategy.
-
-### Planned improvements
-
-- OCR for scanned PDFs.
-- Reporting dashboard and CSV/Excel export.
-- Background queue (Celery/RQ) for larger batch stability.
-
----
-
-## Table of contents
-
-1. [System requirements](#system-requirements)
-2. [Installation and run](#installation-and-run)
-3. [How to use](#how-to-use)
-4. [LocCV scoring logic](#loccv-scoring-logic)
-5. [Project structure](#project-structure)
-6. [Environment variables](#environment-variables)
-7. [Credits](#credits)
-8. [License](#license)
-
----
-
-## System requirements
-
-- Docker Desktop (Windows) or Docker Engine (Linux)
-- Internet access for initial image/model pull
-- Recommended RAM: at least 4 GB
-
----
-
-## Installation and run
-
-### 1) Open project directory
+Run:
 
 ```powershell
-cd F:\hrm
-```
-
-### 2) Build and start services
-
-```powershell
+cd F:\AutoRecruit
 docker compose up -d --build
-```
-
-### 3) Pull embedding model
-
-```powershell
 docker exec -it ollama ollama pull mxbai-embed-large
 ```
 
-### 4) Health check
+Health check:
 
 ```powershell
 curl.exe http://localhost:8000/health
@@ -84,32 +39,27 @@ curl.exe http://localhost:8000/health
 
 Expected: `{"status":"ok"}`
 
-### 5) Open UI
+Open UI:
 
 - `http://localhost:8000`
 
----
-
 ## How to use
-
-### A. Via UI (recommended)
 
 1. Open `http://localhost:8000`
 2. Upload one or more CV files (`.pdf`, `.docx`)
 3. Paste JD text
-4. Set `Top K` (for batch)
-5. Click **Chấm điểm phù hợp**
+4. Click **Chấm điểm phù hợp**
 
-You will see:
+Returned output includes:
 
-- Final fit score
-- Recommendation label (`strong_fit`, `medium_fit`, `weak_fit`)
-- Batch ranking
-- Project links extracted from CV
+- `final_score`
+- recommendation label (`strong_fit`, `medium_fit`, `weak_fit`)
+- ranking (batch mode)
+- project/link analysis (when available)
 
-### B. Via API
+## Basic APIs
 
-#### Single CV
+### Screen single CV
 
 ```powershell
 curl.exe -X POST "http://localhost:8000/screen" ^
@@ -117,7 +67,7 @@ curl.exe -X POST "http://localhost:8000/screen" ^
   -F "jd_text=Backend Developer. Must have: JavaScript, SQL."
 ```
 
-#### Batch CV
+### Screen batch CVs
 
 ```powershell
 curl.exe -X POST "http://localhost:8000/screen/batch" ^
@@ -129,106 +79,12 @@ curl.exe -X POST "http://localhost:8000/screen/batch" ^
   -F "top_k=10"
 ```
 
-### C. Useful endpoints
+## Important notes
 
-- `GET /results`: stored screening records
-- `GET /jobs`: stored JD list
-- `GET /jobs/{job_id}/ranking`: ranking by job
-
-### D. Recommended settings for 2CPU/4GB VPS
-
-- Use `analysis_mode=lite`
-- Set `embedding_budget=16..32`
-- Keep each batch under ~100 CV files
-
----
-
-## LocCV scoring logic
-
-### Score components
-
-- `semantic_score`: CV–JD embedding similarity
-- `must_have_score`: required-skill match ratio
-- `nice_score`: preferred-skill match ratio
-- `exp_score`: experience requirement satisfaction
-- `project_score`: project/link relevance (if evidence exists)
-
-### Base weights
-
-- semantic: `0.55`
-- must: `0.30`
-- nice: `0.10`
-- exp: `0.05`
-- project: `0.12`
-
-LocCV uses **dynamic weighting**:
-
-- Only active components are included in the denominator.
-- Generic formula:
-
-`final_score = weighted_sum / total_active_weight`
-
-### Recommendation labels
-
-- `>= 0.8`: `strong_fit`
-- `>= 0.6`: `medium_fit`
-- `< 0.6`: `weak_fit`
-
----
-
-## Project structure
-
-```text
-F:\hrm
-|-- app
-|   |-- main.py
-|   |-- skills.json
-|   |-- requirements.txt
-|   `-- static
-|       |-- index.html
-|       `-- main.js
-|-- data
-|   `-- screening.db
-|-- Dockerfile
-|-- compose.yaml
-|-- Readme.md
-`-- README_EN.md
-```
-
----
-
-## Environment variables
-
-- `OLLAMA_URL` (default: `http://ollama:11434`)
-- `EMBED_MODEL` (default: `mxbai-embed-large`)
-- `DATA_DIR` (default: `/data`)
-- `BATCH_EMBED_CHUNK_SIZE` (default: `16`)
-- `BATCH_EMBED_BUDGET_DEFAULT` (default: `32`)
-
----
-
-## Credits
-
-### Owner / Maintainer
-
-- **Vũ Hozang**
-
-### References
-
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Ollama Documentation](https://ollama.com/)
-- [PyMuPDF Documentation](https://pymupdf.readthedocs.io/)
-- [Docker Compose Documentation](https://docs.docker.com/compose/)
-
----
+- Use `analysis_mode=lite` for small VPS (2 CPU / 4 GB RAM)
+- Keep each batch request under ~100 CV files
+- Image-only scanned PDFs (without OCR) may reduce extraction quality
 
 ## License
 
-This project currently **does not include a final LICENSE file**.
-
-Recommendation:
-
-- Use `MIT` or `Apache-2.0` for permissive open usage
-- Use `GPL-3.0` for stronger copyleft
-
-License guide: <https://choosealicense.com/>
+This project is licensed under the **MIT License**. See [LICENSE](./LICENSE).
