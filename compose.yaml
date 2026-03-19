@@ -25,5 +25,53 @@ services:
       - ollama
     restart: unless-stopped
 
+  trainer:
+    build:
+      context: .
+      dockerfile: training/Dockerfile.train
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: >
+      sh -lc "
+      python training/prepare_training_data.py
+      --input ./training/data/train_data.json
+      --output ./training/data/train_data.json
+      --max-triplets-per-dept 12
+      &&
+      python training/train.py
+      --data-path ./training/data/train_data.json
+      --output-path ./model_output/mxbai-cv-tuned
+      --loss-type triplet
+      --epochs 4
+      --batch-size 16
+      --warmup-steps 100
+      "
+    profiles:
+      - train
+
+  ranker:
+    build:
+      context: .
+      dockerfile: training/Dockerfile.train
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command:
+      - python
+      - training/rank_cvs.py
+      - --model-path
+      - ./model_output/mxbai-cv-tuned
+      - --jd-text
+      - ${JD_TEXT:-}
+      - --jd-file
+      - ./data/jd.txt
+      - --cv-dir
+      - ./data
+      - --output-file
+      - ./data/cv_ranking.json
+    profiles:
+      - rank
+
 volumes:
   ollama_data:
