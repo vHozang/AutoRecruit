@@ -330,17 +330,17 @@ def build_cross_encoder_pairs(triplets: List[Dict[str, str]]) -> List[Dict[str, 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Prepare train_data.json from existing data + external sources.")
-    parser.add_argument("--input", default="./train_data.json")
-    parser.add_argument("--output", default="./train_data.json")
+    parser.add_argument("--input", default="./training/data/train_data.json")
+    parser.add_argument("--output", default="./training/data/train_data.json")
     parser.add_argument(
         "--sources",
         nargs="*",
         default=[
-            "./sources_jd_standard.docx",
-            "./sources_github_repos_skill_cv_training.docx",
-            "./sources_department_skill_repos.html",
-            "./sources_jd_department_details.docx",
-            "./sources_skill_set.docx",
+            "./training/data/sources_jd_standard.docx",
+            "./training/data/sources_github_repos_skill_cv_training.docx",
+            "./training/data/sources_department_skill_repos.html",
+            "./training/data/sources_jd_department_details.docx",
+            "./training/data/sources_skill_set.docx",
         ],
     )
     parser.add_argument("--seed", type=int, default=42)

@@ -1,14 +1,14 @@
 {
   "metadata": {
-    "created_at_utc": "2026-03-19T17:15:31.654580+00:00",
+    "created_at_utc": "2026-03-19T17:30:29.926446+00:00",
     "total_triplets": 192,
     "total_cross_encoder_pairs": 384,
     "source_files": [
-      "sources_jd_standard.docx",
-      "sources_github_repos_skill_cv_training.docx",
-      "sources_department_skill_repos.html",
-      "sources_jd_department_details.docx",
-      "sources_skill_set.docx"
+      "training\\data\\sources_jd_standard.docx",
+      "training\\data\\sources_github_repos_skill_cv_training.docx",
+      "training\\data\\sources_department_skill_repos.html",
+      "training\\data\\sources_jd_department_details.docx",
+      "training\\data\\sources_skill_set.docx"
     ],
     "augmentation_keywords": {
       "Ban Giám Đốc": [
