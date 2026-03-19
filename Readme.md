@@ -1,4 +1,4 @@
-﻿# AutoRecruit – Hệ thống lọc CV bằng AI
+﻿# AutoRecruit - He thong loc CV bang AI
 
 ![Project](https://img.shields.io/badge/Project-AutoRecruit-0A66C2)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
@@ -6,61 +6,68 @@
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-AutoRecruit là hệ thống giúp sàng lọc CV theo Job Description (JD), chấm điểm phù hợp và xếp hạng ứng viên.
+AutoRecruit giup sang loc CV theo Job Description (JD), cham diem phu hop va xep hang ung vien.
 
-## Tính năng chính
+## Cau truc thu muc
 
-- Upload 1 hoặc nhiều CV (`.pdf`, `.docx`)
-- Chấm điểm phù hợp CV–JD
-- Xếp hạng ứng viên theo điểm giảm dần
-- Trích xuất kỹ năng, kinh nghiệm, link dự án
-- Lưu lịch sử kết quả bằng SQLite
+- `app/`: FastAPI backend va giao dien static.
+- `data/`: du lieu runtime (SQLite, CV, JD test, ket qua rank).
+- `training/`: toan bo pipeline train/rank model embedding.
+- `training/data/`: train_data va bo tai lieu nguon de tao du lieu train.
 
-## Cài đặt nhanh
+## Yeu cau
 
-Yêu cầu:
+- Docker Desktop (hoac Docker Engine)
+- Ket noi internet de pull image/model lan dau
 
-- Docker Desktop (hoặc Docker Engine)
-- Internet để pull model lần đầu
-
-Chạy:
-
-````powershell
-cd F:\AutoRecruit
-docker compose up -d --build
-docker exec -it ollama ollama pull mxbai-embed-large
-```train
-docker compose --profile train build --no-cache --pull trainer; if ($LASTEXITCODE -eq 0) { docker compose --profile train run --rm trainer }
-
-Kiểm tra:
+## Khoi dong he thong backend + Ollama
 
 ```powershell
+docker compose up -d --build ollama backend
+docker exec ollama ollama pull mxbai-embed-large
 curl.exe http://localhost:8000/health
-````
+```
 
-Kỳ vọng: `{"status":"ok"}`
+Ky vong: `{"status":"ok"}`
 
-Mở giao diện:
+## Train model embedding (Sentence-Transformers)
 
-- `http://localhost:8000`
+Lenh 1 dong de build trainer sach va train:
 
-## Cách sử dụng
+```powershell
+docker compose --profile train build --no-cache --pull trainer; if ($LASTEXITCODE -eq 0) { docker compose --profile train run --rm trainer }
+```
 
-1. Vào `http://localhost:8000`
-2. Chọn 1 hoặc nhiều CV (`.pdf`, `.docx`)
-3. Dán JD
-4. Nhấn **Chấm điểm phù hợp**
+Model fine-tuned duoc luu tai:
 
-Kết quả trả về gồm:
+- `./model_output/mxbai-cv-tuned`
 
-- `final_score`
-- nhãn (`strong_fit`, `medium_fit`, `weak_fit`)
-- ranking (nếu batch)
-- phân tích link/dự án (nếu có)
+## Rank CV bang model da train
 
-## API cơ bản
+### Cach 1: Nhap JD bang text
 
-### Chấm 1 CV
+```powershell
+$env:JD_TEXT = @"
+Backend Python Developer
+Must have: Python, FastAPI, SQL, Docker
+Nice to have: NLP, Sentence-Transformers
+"@
+docker compose --profile rank run --rm ranker
+Remove-Item Env:JD_TEXT
+```
+
+### Cach 2: Dung file JD
+
+```powershell
+docker compose --profile rank run --rm ranker
+```
+
+Mac dinh file JD: `./data/jd.txt`  
+Ket qua ranking: `./data/cv_ranking.json`
+
+## API co ban
+
+### Cham 1 CV
 
 ```powershell
 curl.exe -X POST "http://localhost:8000/screen" ^
@@ -68,7 +75,7 @@ curl.exe -X POST "http://localhost:8000/screen" ^
   -F "jd_text=Backend Developer. Must have: JavaScript, SQL."
 ```
 
-### Chấm nhiều CV
+### Cham nhieu CV
 
 ```powershell
 curl.exe -X POST "http://localhost:8000/screen/batch" ^
@@ -80,12 +87,12 @@ curl.exe -X POST "http://localhost:8000/screen/batch" ^
   -F "top_k=10"
 ```
 
-## Lưu ý quan trọng
+## Luu y
 
-- Dùng `analysis_mode=lite` để tối ưu VPS nhỏ (2 CPU / 4 GB RAM)
-- Mỗi request batch nên dưới 100 CV
-- PDF scan ảnh (không OCR) có thể cho chất lượng parse thấp
+- `backend` dang dung embedding qua Ollama (`mxbai-embed-large`).
+- `trainer/ranker` dung Sentence-Transformers voi model fine-tuned rieng.
+- Dung `analysis_mode=lite` neu VPS nho (2 CPU / 4 GB RAM).
 
 ## License
 
-Dự án sử dụng **MIT License**. Xem file [LICENSE](./LICENSE).
+Du an su dung **MIT License**. Xem file [LICENSE](./LICENSE).

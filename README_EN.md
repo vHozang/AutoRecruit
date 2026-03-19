@@ -6,56 +6,64 @@
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-AutoRecruit is an AI-based CV screening system that matches resumes against a Job Description (JD), scores candidate fit, and ranks applicants.
+AutoRecruit screens resumes against a Job Description (JD), scores candidate fit, and ranks applicants.
 
-## Key features
+## Project structure
 
-- Upload one or multiple CV files (`.pdf`, `.docx`)
-- CV-to-JD fit scoring
-- Candidate ranking by score
-- Skill/experience/project-link extraction
-- SQLite-based result history
+- `app/`: FastAPI backend and static frontend.
+- `data/`: runtime data (SQLite DB, CV files, JD file, ranking output).
+- `training/`: training/ranking pipeline with Sentence-Transformers.
+- `training/data/`: training dataset and source documents for data preparation.
 
-## Quick setup
-
-Requirements:
+## Requirements
 
 - Docker Desktop (or Docker Engine)
-- Internet access for initial model pull
+- Internet access for first-time image/model downloads
 
-Run:
-
-```powershell
-cd F:\AutoRecruit
-docker compose up -d --build
-docker exec -it ollama ollama pull mxbai-embed-large
-```
-
-Health check:
+## Start backend + Ollama
 
 ```powershell
+docker compose up -d --build ollama backend
+docker exec ollama ollama pull mxbai-embed-large
 curl.exe http://localhost:8000/health
 ```
 
 Expected: `{"status":"ok"}`
 
-Open UI:
+## Train embedding model (Sentence-Transformers)
 
-- `http://localhost:8000`
+One-line command to clean-build trainer and run training:
 
-## How to use
+```powershell
+docker compose --profile train build --no-cache --pull trainer; if ($LASTEXITCODE -eq 0) { docker compose --profile train run --rm trainer }
+```
 
-1. Open `http://localhost:8000`
-2. Upload one or more CV files (`.pdf`, `.docx`)
-3. Paste JD text
-4. Click **Chấm điểm phù hợp**
+Fine-tuned model output:
 
-Returned output includes:
+- `./model_output/mxbai-cv-tuned`
 
-- `final_score`
-- recommendation label (`strong_fit`, `medium_fit`, `weak_fit`)
-- ranking (batch mode)
-- project/link analysis (when available)
+## Rank CVs using the fine-tuned model
+
+### Option 1: pass JD as text
+
+```powershell
+$env:JD_TEXT = @"
+Backend Python Developer
+Must have: Python, FastAPI, SQL, Docker
+Nice to have: NLP, Sentence-Transformers
+"@
+docker compose --profile rank run --rm ranker
+Remove-Item Env:JD_TEXT
+```
+
+### Option 2: use JD file
+
+```powershell
+docker compose --profile rank run --rm ranker
+```
+
+Default JD file: `./data/jd.txt`  
+Ranking output: `./data/cv_ranking.json`
 
 ## Basic APIs
 
@@ -79,11 +87,11 @@ curl.exe -X POST "http://localhost:8000/screen/batch" ^
   -F "top_k=10"
 ```
 
-## Important notes
+## Notes
 
-- Use `analysis_mode=lite` for small VPS (2 CPU / 4 GB RAM)
-- Keep each batch request under ~100 CV files
-- Image-only scanned PDFs (without OCR) may reduce extraction quality
+- `backend` uses Ollama embeddings (`mxbai-embed-large`).
+- `trainer/ranker` uses Sentence-Transformers with a separate fine-tuned model.
+- Use `analysis_mode=lite` for smaller VPS (2 CPU / 4 GB RAM).
 
 ## License
 
